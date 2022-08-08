@@ -17,7 +17,7 @@ using Debugger
 
 
 
-
+####### Function to eliminate data structures #######
 function workspace()
     atexit() do
         run(`$(Base.julia_cmd())`)
@@ -27,7 +27,13 @@ function workspace()
 
 ####### Measurement Set for chief #######
 function measurement_chief(x_chief)
-    """Measurement function for our system.Relative range for deputies(Sat 2:4) and GPS for Chief(Sat 1)"""
+    # Function that holds the chief measurement model, that includes only local GPS sensing 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Pos+Vel [r0;v0;r1;v1;...] for chief
+    # Output arguments
+    # - Measurement Vector
+    # From Robotic Exploration Lab at CMU 
 
     r1 = SVector(x_chief[1],x_chief[2],x_chief[3])
 
@@ -38,10 +44,18 @@ function measurement_chief(x_chief)
 
 end
 
-
+####### Generate dataset for chief spacecraft #######
 function generate_data_chief(x0,T,dt,R_chief)
-    """Forward rollout of the sim, no process noise""" 
-    # From Robotic Exploration Lab at CMU - TO get 3x1 size([1; 1; 1;;])
+    # Function that propagates the dynamics over T iterations 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Number of Iterations
+    # - Timestamp
+    # - Measurement Noise Covariance
+    # Output arguments
+    # - Array of positions through time
+    # - Measurements through time
+    # From Robotic Exploration Lab at CMU 
 
     
     X = fill(zeros(6,1),T)
@@ -65,9 +79,9 @@ function generate_data_chief(x0,T,dt,R_chief)
     return X,Y
 end
 
-
+####### Dynamics #######
 function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
-    # Functioxn that includes Normalized Multiple Satellite Dynamics w/
+    # Function that includes Normalized Multiple Satellite Dynamics w/
     # Jacobians for Two-Body+J2+Drag with exponential Model.
     # Input arguments
     # - Timestamp
@@ -75,13 +89,13 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
     # - Flag on Normalization 
     # Output arguments
     # - xDot [v0;a0;...]
-    # - Jacobians
+    # - Dot Jacobians
 
-    # Original by Rafael Cordeiro for Robotic Exploration Lab at Carnegie Mellon University
+    # Original for Robotic Exploration Lab at Carnegie Mellon University
 
     ## A is dx = f = [v;ac]; A = delta_f
     # Since d_phi(t,t0) = delta_f/delta_x * phi(t,t0)
-    "HERE"
+
 	R_E = 6378.137; #km
 
     nx=size(x,1);
@@ -113,8 +127,8 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
 
 
         ## Drag Model - Based on Montenbruck and Julia SatelliteToolbox.jl Package
-        # TODO - missing Rotation from inertial -> True-of-date(Greenwhich), only corrects bias 
 
+        
 
         # Compute the atmospheric density [kg/m³] at the altitude `h` \\[m] (above the
         # ellipsoid) using the exponential atmospheric model:
@@ -238,6 +252,7 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
     
 end
 
+####### Perform RK4 Integration #######
 
 function StateTransDeputiesRK4(t,x)
     
@@ -267,11 +282,17 @@ end
 
 ####### Measurement Set for deputies #######
 function measurement_deputies(x,x_chief)
-    """Measurement function for our system.Relative range for deputies(Sat 2:4) and GPS for Chief(Sat 1)"""
-
-    r1 = SVector(x_chief[1],x_chief[2],x_chief[3])
+    # Function that holds the deputy measurement model, that inclues only relative-range for the entire formation 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Pos+Vel [r0;v0;r1;v1;...] for chief
+    # Output arguments
+    # - Measurement Vector
+    # From Robotic Exploration Lab at CMU 
 
     
+    r1 = SVector(x_chief[1],x_chief[2],x_chief[3])
+
     r2 = SVector(x[1],x[2],x[3])
 
     r3 = SVector(x[7],x[8],x[9])
@@ -289,12 +310,21 @@ function measurement_deputies(x,x_chief)
                    
 
 end
-####### Generate Dataset #######
 
+####### Generate Dataset for deputies #######
 
 function generate_data_deputies(x0,X_chief,T,dt,R)
-    """Forward rollout of the sim, no process noise""" 
-    # From Robotic Exploration Lab at CMU
+    # Function that propagates the dynamics over T iterations 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Number of Iterations
+    # - Timestamp
+    # - Measurement Noise Covariance
+    # Output arguments
+    # - Array of positions through time
+    # - Measurements through time
+    # From Robotic Exploration Lab at CMU 
+
     
     X = fill(zeros(18,1),T)
     Y = fill(zeros(size(R,1),1),T)
@@ -315,6 +345,9 @@ function generate_data_deputies(x0,X_chief,T,dt,R)
 
     return X,Y
 end
+
+
+####### Chief Filter Architecture #######
 
 function ChiefFilterEKFFunctionwCRLB(x_old,xteo,y1,P_old,T,R,Q,Info_Jk_chief,FLAG_GPS)
 
@@ -363,26 +396,14 @@ end
 
 ####### Struct Defining Formation Objects #######
 
-# Immutable Object, when inserted, can't be changed -> Faster
-# TrackingSC1 -> Vector of spacecrafts
-
-# struct Spacecraft
-    
-#     PosVector :: Matrix{Any}
-#     TruePos :: Matrix{Any}
-#     P :: Matrix{Any}
-#     P_xc :: Matrix{Any}
-#     P_xx :: Matrix{Any}
-
-# end
-
 include("SpacecraftDataset.jl")
 using .SpacecraftDataset
 
-## Main for Distributed Consider EKF
+# ----------------------------------------------------------
+## Main for Distributed Consider EKF - Contains deputy Archiecture - In this case we processed only 1 deputy for example , as the other 2, due to the shared measurements, would have the same Output
+# ----------------------------------------------------------
 
-# TransporterMission
-
+# V-R3x Mission Setting
 
 x0 = permutedims([6895.6 0 0 0 -0.99164 7.5424 6895.6 3e-05 1e-05 -0.0015 -0.99214 7.5426 6895.6 1e-05 3e-06 0.005 -0.98964 7.5422 6895.6 -2e-05 4e-06 0.00545 -0.99594 7.5423])
 
@@ -418,21 +439,21 @@ GM = 398600.4418;
 # sample time is 60 seconds
 dt = 60.0
 
-
-
 # initial time for sim
 T = 395
 SizeOfDataSet = 395
 # T = 5
 # SizeOfDataSet = 5
 ElapSEC = 0:dt:dt*(SizeOfDataSet)
+
+# Generate Datasets from an initial starting state for the formation
+
 X_chief,Y_chief = generate_data_chief(x0[1:6,:],T,dt,R_chief)
 
 X,Y = generate_data_deputies(x0[7:end,:],X_chief,T,dt,R)
 
 
 # Gaussian Initial Deviation
-
 
 x_pos_init = x0; true_pos = x0;
 Initial_Dev = [0.1*(randn(3,1));10^(-5)*(randn(3,1));0.1*(randn(3,1));10^(-5)*(randn(3,1));0.1*(randn(3,1));10^(-5)*(randn(3,1));0.1*(randn(3,1));10^(-5)*(randn(3,1));;];
@@ -446,24 +467,26 @@ Pos_True = true_pos[7:end,:]; Pos_True_chief = true_pos[1:6,:];
 P_Init_aux = Matrix(BlockDiagonal([P_sat,P_sat,P_sat]));
 
 PCov = 2*Diagonal(vec((Initial_Dev[7:end,:]).^2)) + P_Init_aux; 
-
 PCov_chief = Diagonal(vec((Initial_Dev[1:6,:]).^2)) + P_sat;
 
-
-
 P_xc = zeros(18,6)
+
+# Initialize Formation data structure that holds the navigation related information
 
 SpacecraftChief = Spacecraft(Pos_init_chief,Pos_True_chief,PCov_chief,zeros(18,6),zeros(18,18));
 SpacecraftDep = Spacecraft(Pos_init,Pos_True,PCov,P_xc,PCov);
 
-
 Formation = [SpacecraftChief,SpacecraftDep]
 
 xteo = true_pos[7:end,:];
-# Range-Only
+
+# Covariance Matrix for the chief
 P_cc = Diagonal(vec((Initial_Dev[1:6,:]).^2)) + P_sat;
 
+# CRLB for the Chief
 Info_Jk_chief = inv(Q_chief);
+
+# Deputy Filter Start
 for i = 2:SizeOfDataSet
 
 
@@ -554,9 +577,7 @@ for i = 2:SizeOfDataSet
         y1 = Y[i];
 
         ############# State Refining #############
-
-        ## Blog Consider Covariance
-
+        # Consider Parameters covariance matrix, includes the influence of the chief state on the deputy measurement model
         H_c = zeros(row_count-1,6); 
         index = [1 4 6];# GPS Meas
         for g = 1:Number_of_Sats-1
@@ -573,7 +594,6 @@ for i = 2:SizeOfDataSet
 
 
         P_xy = P*H' + P_xc*H_c';
-        # 
         P_yy =   H*P*H' + R + H*P_xc*H_c' + H_c*P_xc'*H' + H_c*P_cc*H_c';
 
         # Calculate the Kalman gain.
@@ -590,11 +610,7 @@ for i = 2:SizeOfDataSet
 
         P_xc = P_xc - K*H*P_xc - K*H_c*P_cc;
 
-    
-        # Std_dev_P_consider[i] = norm(sqrt(Diagonal(P)));
-        # Std_dev_P[i] = norm(sqrt(Diagonal(P_chief)));
-        # Std_dev_P_dep[i] = norm(sqrt(Diagonal(P_xx)));  
-
+        # Update Formation Data Structures
         SpacecraftChief = Spacecraft(x_new_chief,X_chief[i],P_chief,zeros(18,6),zeros(18,18));
         SpacecraftDep = Spacecraft(x_pos,X[i],P,P_xc,P_xx);
 

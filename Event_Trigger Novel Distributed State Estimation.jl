@@ -27,8 +27,13 @@ function workspace()
 
 ####### Measurement Set for chief #######
 function measurement_chief(x_chief)
-    """Measurement function for our system.Relative range for deputies(Sat 2:4) and GPS for Chief(Sat 1)"""
-
+    # Function that holds the chief measurement model, that includes only local GPS sensing 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Pos+Vel [r0;v0;r1;v1;...] for chief
+    # Output arguments
+    # - Measurement Vector
+    # From Robotic Exploration Lab at CMU 
     r1 = SVector(x_chief[1],x_chief[2],x_chief[3])
 
     
@@ -38,11 +43,18 @@ function measurement_chief(x_chief)
 
 end
 
-
+####### Generate dataset for chief spacecraft #######
 function generate_data_chief(x0,T,dt,R_chief)
-    """Forward rollout of the sim, no process noise""" 
-    # From Robotic Exploration Lab at CMU - TO get 3x1 size([1; 1; 1;;])
-
+    # Function that propagates the dynamics over T iterations 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Number of Iterations
+    # - Timestamp
+    # - Measurement Noise Covariance
+    # Output arguments
+    # - Array of positions through time
+    # - Measurements through time
+    # From Robotic Exploration Lab at CMU 
     
     X = fill(zeros(6,1),T)
     Y = fill(zeros(3,1),T)
@@ -65,9 +77,9 @@ function generate_data_chief(x0,T,dt,R_chief)
     return X,Y
 end
 
-
+####### Dynamics #######
 function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
-    # Functioxn that includes Normalized Multiple Satellite Dynamics w/
+    # Function that includes Normalized Multiple Satellite Dynamics w/
     # Jacobians for Two-Body+J2+Drag with exponential Model.
     # Input arguments
     # - Timestamp
@@ -75,14 +87,13 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
     # - Flag on Normalization 
     # Output arguments
     # - xDot [v0;a0;...]
-    # - Jacobians
-
-    # Original by Rafael Cordeiro for Robotic Exploration Lab at Carnegie Mellon University
+    # - Dot Jacobians
+    # Original for Robotic Exploration Lab at Carnegie Mellon University
 
     ## A is dx = f = [v;ac]; A = delta_f
     # Since d_phi(t,t0) = delta_f/delta_x * phi(t,t0)
-    "HERE"
-	R_E = 6378.137; #km
+
+    R_E = 6378.137; #km
 
     nx=size(x,1);
     nt= size(x,2)
@@ -113,8 +124,8 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
 
 
         ## Drag Model - Based on Montenbruck and Julia SatelliteToolbox.jl Package
-        # TODO - missing Rotation from inertial -> True-of-date(Greenwhich), only corrects bias 
 
+        
 
         # Compute the atmospheric density [kg/m³] at the altitude `h` \\[m] (above the
         # ellipsoid) using the exponential atmospheric model:
@@ -238,7 +249,7 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
     
 end
 
-
+####### Perform RK4 Integration #######
 function StateTransDeputiesRK4(t,x)
     
     ## Normal Rk4 and addition of jacobian determination
@@ -267,7 +278,13 @@ end
 
 ####### Measurement Set for deputies #######
 function measurement_deputies(x,x_chief)
-    """Measurement function for our system.Relative range for deputies(Sat 2:4) and GPS for Chief(Sat 1)"""
+    # Function that holds the deputy measurement model, that inclues only relative-range for the entire formation 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Pos+Vel [r0;v0;r1;v1;...] for chief
+    # Output arguments
+    # - Measurement Vector
+    # From Robotic Exploration Lab at CMU 
 
     r1 = SVector(x_chief[1],x_chief[2],x_chief[3])
 
@@ -289,12 +306,20 @@ function measurement_deputies(x,x_chief)
                    
 
 end
+
 ####### Generate Dataset #######
 
-
 function generate_data_deputies(x0,X_chief,T,dt,R)
-    """Forward rollout of the sim, no process noise""" 
-    # From Robotic Exploration Lab at CMU
+    # Function that propagates the dynamics over T iterations 
+    # Input arguments
+    # - Pos+Vel [r0;v0;r1;v1;...]
+    # - Number of Iterations
+    # - Timestamp
+    # - Measurement Noise Covariance
+    # Output arguments
+    # - Array of positions through time
+    # - Measurements through time
+    # From Robotic Exploration Lab at CMU 
     
     X = fill(zeros(18,1),T)
     Y = fill(zeros(size(R,1),1),T)
@@ -315,6 +340,8 @@ function generate_data_deputies(x0,X_chief,T,dt,R)
 
     return X,Y
 end
+
+####### Chief Filter Architecture #######
 
 function ChiefFilterEKFFunctionwCRLB(x_old,xteo,y1,P_old,T,R,Q,Info_Jk_chief,FLAG_GPS)
 
@@ -363,25 +390,14 @@ end
 
 ####### Struct Defining Formation Objects #######
 
-# Immutable Object, when inserted, can't be changed -> Faster
-# TrackingSC1 -> Vector of spacecrafts
-
-# struct Spacecraft
-    
-#     PosVector :: Matrix{Any}
-#     TruePos :: Matrix{Any}
-#     P :: Matrix{Any}
-#     P_xc :: Matrix{Any}
-#     P_xx :: Matrix{Any}
-
-# end
-
 include("SpacecraftDataset.jl")
 using .SpacecraftDataset
 
-## Main for Distributed Consider EKF
+# ----------------------------------------------------------
+## Main for Event-Trigger Distributed Consider EKF - Contains deputy Archiecture - In this case we processed only 1 deputy for example , as the other 2, due to the shared measurements, would have the same Output
+# ----------------------------------------------------------
 
-# TransporterMission
+# V-R3x Mission Setting
 
 
 x0 = permutedims([6895.6 0 0 0 -0.99164 7.5424 6895.6 3e-05 1e-05 -0.0015 -0.99214 7.5426 6895.6 1e-05 3e-06 0.005 -0.98964 7.5422 6895.6 -2e-05 4e-06 0.00545 -0.99594 7.5423])
@@ -418,14 +434,15 @@ GM = 398600.4418;
 # sample time is 60 seconds
 dt = 60.0
 
-
-
 # initial time for sim
 T = 395
 SizeOfDataSet = 395
 # T = 15
 # SizeOfDataSet = 15
 ElapSEC = 0:dt:dt*(SizeOfDataSet)
+
+# Generate Datasets from an initial starting state for the formation
+
 X_chief,Y_chief = generate_data_chief(x0[1:6,:],T,dt,R_chief)
 
 X,Y = generate_data_deputies(x0[7:end,:],X_chief,T,dt,R)
@@ -449,9 +466,9 @@ PCov = 2*Diagonal(vec((Initial_Dev[7:end,:]).^2)) + P_Init_aux;
 
 PCov_chief = Diagonal(vec((Initial_Dev[1:6,:]).^2)) + P_sat;
 
-
-
 P_xc = zeros(18,6)
+
+# Initialize Formation data structure that holds the navigation related information
 
 SpacecraftChief = Spacecraft(Pos_init_chief,Pos_True_chief,PCov_chief,zeros(18,6),zeros(18,18));
 SpacecraftDep = Spacecraft(Pos_init,Pos_True,PCov,P_xc,PCov);
@@ -460,12 +477,11 @@ SpacecraftDep = Spacecraft(Pos_init,Pos_True,PCov,P_xc,PCov);
 Formation = [SpacecraftChief,SpacecraftDep]
 
 xteo = true_pos[7:end,:];
-# Range-Only
 P_cc = Diagonal(vec((Initial_Dev[1:6,:]).^2)) + P_sat;
 
 Info_Jk_chief = inv(Q_chief);
 
-############ Crámer-Rao Lower-bound ############
+# Event-Triggering Init. 
 
 Trace_P_consider = zeros(SizeOfDataSet,1);
 Trace_P =  zeros(SizeOfDataSet,1);
@@ -478,6 +494,10 @@ InfoJ_k = inv(Q);
 Trace_CramerRaoLB= zeros(SizeOfDataSet,1);
 Trace_CramerRaoLB_Chief= zeros(SizeOfDataSet,1);
 
+
+# Confidence-Levels for Sensor Selection
+CL_Chief = 5
+CL_Deputy = 1.5
 
 for i = 2:SizeOfDataSet
 
@@ -503,8 +523,9 @@ for i = 2:SizeOfDataSet
         TruePos_dep = X[i] + W;
         TruePos_chief = X_chief[i] + sqrt(Q_chief)*randn(6,1);
 
-        # Dynamics Propagations - Event-Trigger Conditions for Chief
-        if any(x->x==i,[1:1:10;]) ||  Trace_P[i-1] > 5*Trace_CramerRaoLB_Chief[i-1]
+        # Dynamics Propagations - Event-Trigger Conditions for Chief - Due to the initial poorly-observable scenario for the V-R3x mission
+        # force the filter to also use GPS in the first 10 iterations.
+        if any(x->x==i,[1:1:10;]) ||  Trace_P[i-1] > CL_Chief*Trace_CramerRaoLB_Chief[i-1]
             
             FLAG_GPS = 1;
 
@@ -531,9 +552,13 @@ for i = 2:SizeOfDataSet
 
         P = P + phi_t*P_xc*Fc' + Fc*P_xc'*phi_t' + Fc*P_cc*Fc';
         P_xc = phi_t*P_xc + Fc*P_cc;
+
+        ###### Sensor Selection ######
+        # Only performs the update stage of the EKF,i.e. activates the deputy sensing capabilities when ETC is assured, 
+        # otherwise the filter just propagtes the dynamics model and monitors the covariance.
         H = zeros(Number_meas,6*(Number_of_Sats-1)); row_count = 1;
 
-        if FLAG_GPS == 1 || Trace_P_consider[i-1] > 1.5*Trace_CramerRaoLB[i-1]
+        if FLAG_GPS == 1 || Trace_P_consider[i-1] > CL_Deputy*Trace_CramerRaoLB[i-1]
 
             ## Meas. Prediction 
             y_hat = zeros(Number_meas,1); y1 = zeros(Number_meas,1);
@@ -582,7 +607,7 @@ for i = 2:SizeOfDataSet
 
             ############# State Refining #############
 
-            ## Blog Consider Covariance
+            # Consider Parameters covariance matrix, includes the influence of the chief state on the deputy measurement model
 
             H_c = zeros(row_count-1,6); 
             index = [1 4 6];# GPS Meas
@@ -618,7 +643,7 @@ for i = 2:SizeOfDataSet
             P_xc = P_xc - K*H*P_xc - K*H_c*P_cc;
         end
     
-
+        # To monitor covariance for the Event-trigger conditions(ETC)
         Trace_P_consider[i] = tr(P);
         Trace_P[i] = tr(P_chief);
         Trace_P_dep[i] = tr(P_xx);   
