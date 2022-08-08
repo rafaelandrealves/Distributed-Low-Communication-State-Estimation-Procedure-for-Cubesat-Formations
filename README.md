@@ -1,5 +1,5 @@
 
-<h1 align="center">Novel Low-Communication Distributed Satellite State Estimation Framework 🔭🛰</h1>
+<h1 align="center">Novel Low-Communication Distributed State Estimation Framework for Satellite Formations 🔭🛰</h1>
 <h3 align="center">Collaboration between CMU and IST</h3>
 
 
