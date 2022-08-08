@@ -5,8 +5,8 @@
 
 <h3 align="left">Division:</h3>
 
-- **Distributed Consider EKF for a 4 Cubesat Formationw/ range-only Meas. and a chief with GPS ** - Includes Dynamics with Gravity,J2 Perturbations and Spacecraft Drag with an Exponential Atmosphere model.**
-- **Event-Trigger variant of the Proposed Distributed Filter for Sensor Selection and Communication Channel Optimization.**
+- **Distributed Consider EKF for a 4 Cubesat Formation w/ Deputies having Relative Range Meas. and a Chief with GPS Meas. - Includes Dynamics with Gravity,J2 Perturbations and Spacecraft Drag with an Exponential Atmosphere model.**
+- **Event-Trigger variant of the Proposed Distributed Filter for Sensor Selection and Communication Channel Optimization based on the Crámer-Rao Lower Bound and proportional Confidence Levels, that the user defines to balance the ratio between accuracy and communication optimization.**
 
 
 <p align="left">
