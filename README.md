@@ -24,6 +24,8 @@
 ![Screenshot](https://raw.githubusercontent.com/rafaelandrealves/Distributed-Low-Communication-State-Estimation-Procedure-for-Cubesat-Formations/master/Images/MemoryTransferred.png)
 ![Screenshot](https://raw.githubusercontent.com/rafaelandrealves/Distributed-Low-Communication-State-Estimation-Procedure-for-Cubesat-Formations/master/Images/DecenBarChartAndPieGraph.png)
 
+- **All of this with on-par position error levels with the current literature alternatives in the V-R3x mission problem setting;**
+![Screenshot](https://raw.githubusercontent.com/rafaelandrealves/Distributed-Low-Communication-State-Estimation-Procedure-for-Cubesat-Formations/master/Images/ErrorPlot_V_R3x_Mission_Setting.png)
 
 <p align="left">
 </p>
