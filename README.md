@@ -14,10 +14,15 @@
 
 <h3 align="left">Key Facts:</h3>
 
+- **Satellite formation orbiting Earth in the different stages : (A) - Formation has both relative sensing between every satellite taken by each deputy and GPS measurements from the chief; (B) - Only relative-range being used by deputies; (C) - No measurements are being actuated and the formation graph only contains communication nodes between spacecraft.**
 
-- **The Measurement Model is Range-only between them and state model is Pos.+Vel. in km & km/s for Deputies and a Hub Spacecraft with GPS Measurements only;**
+![Screenshot](https://raw.githubusercontent.com/rafaelandrealves/Distributed-Low-Communication-State-Estimation-Procedure-for-Cubesat-Formations/master/Images/Image_ConsEKF.png)
 
-- **The Dynamics Model is made by the author w/ J2 and Drag, that includes also the jacobians;**
+- **The Dynamics Model is made by the author w/ J2 and Drag ➡️ Model includes also the jacobians;**
+- **Proposed Distributed Framework is easy to use and has, through testing with CubeSats from the SpaceX Transporter-1 mission, less memory transferred by factor of 1000 when compared to the current literature of distributed systems and 80% less sensor activations that the literature consensus-based distributed frameworks;**
+
+![Screenshot](https://raw.githubusercontent.com/rafaelandrealves/Distributed-Low-Communication-State-Estimation-Procedure-for-Cubesat-Formations/master/Images/MemoryTransferred.png)
+![Screenshot](https://raw.githubusercontent.com/rafaelandrealves/Distributed-Low-Communication-State-Estimation-Procedure-for-Cubesat-Formations/master/Images/DecenBarChartAndPieGraph.png)
 
 
 <p align="left">
