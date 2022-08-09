@@ -349,8 +349,24 @@ end
 
 ####### Chief Filter Architecture #######
 
-function ChiefFilterEKFFunctionwCRLB(x_old,xteo,y1,P_old,T,R,Q,Info_Jk_chief,FLAG_GPS)
+function ChiefFilterEKFFunctionwCRLB(x_old,y1,P_old,T,R,Q,Info_Jk_chief,FLAG_GPS)
+    # Function corresponding to the Chief Filter architecture
+    # Input arguments
+    # - Previous Pos+Vel [r0;v0;r1;v1;...]
+    # - Measurements - Abs. Inertial Position
+    # - Previous Covariance Matrix
+    # - Timestamp
+    # - Process Noise Covariance Matrix
+    # - Measurement Noise Covariance Matrix
+    # - Information Matrix
+    # - GPS Flag for Sensor Selection
+    # Output arguments
+    # - New estimate Pos+Vel [r0;v0;r1;v1;...]
+    # - New Covariance Matrix
+    # - Jacobians
+    # - New Information Matrix
 
+    # From Robotic Exploration Lab at CMU 
     ############# Filter Processing #############
     x_pos_old = x_old;
     P = P_old;
@@ -513,7 +529,7 @@ for i = 2:SizeOfDataSet
         # Dynamics Propagations
 
         x_new,phi = StateTransDeputiesRK4(ElapSEC[i]-ElapSEC[i-1],x_pos_old);
-        x_new_chief,P_chief,phi_t_chief,aux1_Info_Jk_chief = ChiefFilterEKFFunctionwCRLB(x_pos_old_chief,TruePos_chief,Y_chief[i],P_chief,T,R_chief,Q_chief,aux_Info_Jk_chief,1);
+        x_new_chief,P_chief,phi_t_chief,aux1_Info_Jk_chief = ChiefFilterEKFFunctionwCRLB(x_pos_old_chief,Y_chief[i],P_chief,T,R_chief,Q_chief,aux_Info_Jk_chief,1);
         global aux_Info_Jk_chief = aux1_Info_Jk_chief
         P_cc = P_chief;
 
