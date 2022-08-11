@@ -403,7 +403,7 @@ end
 ####### Deputy Filter Architecture #######
 
 function DeputyFilterEKFFunctionwCRLB(x_old,x_new_chief,P_chief,y_true,P,P_xc,P_xx,InfoJ_k,T,R,Q,FLAG_RR)
-    # Function corresponding to the Chief Filter architecture
+    # Function corresponding to the Deputy Filter architecture
     # Input arguments
     # - Previous Pos+Vel [r0;v0;r1;v1;...]
     # - Chief Pos+Vel [r0;v0;r1;v1;...]
@@ -421,7 +421,7 @@ function DeputyFilterEKFFunctionwCRLB(x_old,x_new_chief,P_chief,y_true,P,P_xc,P_
     # - New Covariance Matrix
     # - New Cross-Correlations Matrix between chief and deputy
     # - New Naive Covariance Matrix
-    # - Information Matrix for determiantion of Crámer-Rao Lower Bound
+    # - Information Matrix for determination of Crámer-Rao Lower Bound
 
     # From Robotic Exploration Lab at CMU 
     ############# Filter Processing #############
