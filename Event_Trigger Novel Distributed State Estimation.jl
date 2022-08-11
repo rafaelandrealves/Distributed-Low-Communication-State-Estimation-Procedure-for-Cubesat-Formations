@@ -99,11 +99,10 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
     nt= size(x,2)
     xd=zeros(nx,nt); A = [];
     
-    ## two-body dynamics & drag
-    # If State vector had Drag Coefficient (7.80) montenbruck
+    ## Two-body dynamics & drag
+    ## Chapter 7.80 Montenbruck book
     mu = 3.986E5; raw0 = 1.225;# kg/m^3
-    w_E = [0; 0; 2*pi/86184]; # Earths angular velocity vector -> Rel velocity of Satellite
-    # vs the athmospheric, assume atmosphere co-rotates with Earth -> vr =
+    w_E = [0; 0; 2*pi/86184]; # Earths angular velocity vector -> Rel velocity of Satellite vs the athmospheric, assume atmosphere co-rotates with Earth -> vr =
 
     Area = 0.01;
     m = 1;
