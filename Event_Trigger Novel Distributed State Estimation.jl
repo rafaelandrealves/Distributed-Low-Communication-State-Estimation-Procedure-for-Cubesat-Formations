@@ -359,7 +359,7 @@ function ChiefFilterEKFFunctionwCRLB(x_old,y1,P_old,T,R,Q,Info_Jk_chief,FLAG_GPS
     # - New Covariance Matrix
     # - Jacobians
     # - New Information Matrix
-    
+
     ############# Filter Processing #############
     x_pos_old = x_old;
     P = P_old;
@@ -401,21 +401,155 @@ function ChiefFilterEKFFunctionwCRLB(x_old,y1,P_old,T,R,Q,Info_Jk_chief,FLAG_GPS
     return x_new,P,phi,Info_Jk_chief
 end         
        
+####### Deputy Filter Architecture #######
+
+function DeputyFilterEKFFunctionwCRLB(x_old,x_new_chief,P_chief,y_true,P,P_xc,P_xx,InfoJ_k,T,R,Q,FLAG_RR)
+    # Function corresponding to the Chief Filter architecture
+    # Input arguments
+    # - Previous Pos+Vel [r0;v0;r1;v1;...]
+    # - Chief Pos+Vel [r0;v0;r1;v1;...]
+    # - Chief Covariance Matrix
+    # - Measurements - Relative-Range
+    # - Past Covariance Matrix
+    # - Cross-Correlations Matrix between chief and deputy
+    # - Past Information Matrix
+    # - Timestamp
+    # - Process Noise Covariance Matrix
+    # - Measurement Noise Covariance Matrix
+    # - Rel. Range Flag for Sensor Selection
+    # Output arguments
+    # - New estimate Pos+Vel [r0;v0;r1;v1;...]
+    # - New Covariance Matrix
+    # - New Cross-Correlations Matrix between chief and deputy
+    # - New Naive Covariance Matrix
+    # - Information Matrix for determiantion of Crámer-Rao Lower Bound
+
+    # From Robotic Exploration Lab at CMU 
+    ############# Filter Processing #############
+
+    x_new,phi = StateTransDeputiesRK4(T,x_old);
 
 
-####### Struct Defining Formation Objects #######
+    P_cc = P_chief;
 
-include("SpacecraftDataset.jl")
-using .SpacecraftDataset
+        
+    x_pos = x_new;
+    phi_t = phi;
+
+
+    P = phi_t*P*phi_t'+  Q;
+    P_xx = phi_t*P_xx*phi_t'+  Q;
+
+    Fc = zeros(18,6);
+
+    P = P + phi_t*P_xc*Fc' + Fc*P_xc'*phi_t' + Fc*P_cc*Fc';
+    P_xc = phi_t*P_xc + Fc*P_cc;
+
+    ## Meas. Prediction 
+    H = zeros(Number_meas,6*(Number_of_Sats-1)); row_count = 1;
+    if FLAG_RR == 1
+        y_hat = zeros(Number_meas,1);
+        for meas_processing_sat = 1:(Number_of_Sats-1)
+
+            # First Range w/GPS Sats
+
+            y_hat[row_count] = norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-x_new_chief[1:3,:]);
+
+            H[row_count,(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+6] =  [((x_pos[(meas_processing_sat-1)*6+1]-(x_new_chief[1]))/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_new_chief[1:3,:]))) 
+                    ((x_pos[(meas_processing_sat-1)*6+2]-x_new_chief[2])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_new_chief[1:3,:]))) 
+                    ((x_pos[(meas_processing_sat-1)*6+3]-x_new_chief[3])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_new_chief[1:3,:])))
+                    0 
+                    0
+                    0]; 
+            row_count = row_count+1;
+            for h = (meas_processing_sat+1):(Number_of_Sats-1)
+
+                y_hat[row_count] = norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:]));
+
+
+                # Measurement Processing
+
+                H[row_count,(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+6] = [((x_pos[(meas_processing_sat-1)*6+1] - x_pos[(h-1)*6+1])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:]))) 
+                    ((x_pos[(meas_processing_sat-1)*6+2] - x_pos[(h-1)*6+2])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
+                    ((x_pos[(meas_processing_sat-1)*6+3] - x_pos[(h-1)*6+3])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
+                    0
+                    0
+                    0];
+
+
+                H[row_count,(h-1)*6+1:(h-1)*6+6] =  -1*[((x_pos[(meas_processing_sat-1)*6+1] - x_pos[(h-1)*6+1])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:]))) 
+                    ((x_pos[(meas_processing_sat-1)*6+2] - x_pos[(h-1)*6+2])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
+                    ((x_pos[(meas_processing_sat-1)*6+3] - x_pos[(h-1)*6+3])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
+                    0
+                    0
+                    0];                  
+                row_count = row_count +1;
+            end
+
+
+
+        end
+
+        # y1 = Y[i];
+
+        ############# State Refining #############
+        # Consider Parameters covariance matrix, includes the influence of the chief state on the deputy measurement model
+        H_c = zeros(row_count-1,6); 
+        index = [1 4 6];# GPS Meas
+        for g = 1:Number_of_Sats-1
+            H_c[index[g],:] =  -1*[((x_pos[(g-1)*6+1]-(x_new_chief[1]))/norm(x_pos[(g-1)*6+1:(g-1)*6+3,:]-(x_new_chief[1:3,:]))) 
+                ((x_pos[(g-1)*6+2]-x_new_chief[2])/norm(x_pos[(g-1)*6+1:(g-1)*6+3]-(x_new_chief[1:3,:]))) 
+                ((x_pos[(g-1)*6+3]-x_new_chief[3])/norm(x_pos[(g-1)*6+1:(g-1)*6+3]-(x_new_chief[1:3,:])))
+                0
+                0
+                0]; 
+        end
+
+        y = y_true-y_hat;
+
+
+        P_xy = P*H' + P_xc*H_c';
+        P_yy =   H*P*H' + R + H*P_xc*H_c' + H_c*P_xc'*H' + H_c*P_cc*H_c';
+
+        # Calculate the Kalman gain.
+        K = P_xy / P_yy;
+        aux =  x_pos + K*y;
+
+        x_pos = aux;
+
+        # Correct the state covariance and the state-consider covariance.
+        P = P - K*H*P - K*H_c*P_xc'; # New part
+
+        Kgain = P_xx*H'/(H*P_xx*H' + R);
+        P_xx = P_xx - Kgain*H*P_xx;
+
+        P_xc = P_xc - K*H*P_xc - K*H_c*P_cc;
+    end
+
+    ############ Crámer-Rao Lower-bound ############
+
+    InfoJ_k = inv(Q + phi_t*inv(InfoJ_k)*(phi_t)')+ H'*inv(R)*H;
+
+    return x_pos,P,P_xc,P_xx,InfoJ_k
+
+end         
+       
+
+####### Data Struct Defining Formation Objects #######
+
+include("SpacecraftDatasetETC.jl")
+using .SpacecraftDatasetETC
 
 # ----------------------------------------------------------
-## Main for Event-Trigger Distributed Consider EKF - Contains deputy Archiecture - In this case we processed only 1 deputy for example , as the other 2, due to the shared measurements, would have the same Output
+## Main for Event-Trigger Distributed Consider EKF - Contains deputy Architecture
 # ----------------------------------------------------------
 
 # V-R3x Mission Setting
-
-
 x0 = permutedims([6895.6 0 0 0 -0.99164 7.5424 6895.6 3e-05 1e-05 -0.0015 -0.99214 7.5426 6895.6 1e-05 3e-06 0.005 -0.98964 7.5422 6895.6 -2e-05 4e-06 0.00545 -0.99594 7.5423])
+
+# Optimized Formation Mission Setting
+#x0 = permutedims([-1295.9 -929.67 6793.4 -7.4264 0.1903 -1.3906 171.77 6857.3 -1281.5 1.0068 -1.3998 -7.3585 -4300.5 1654.8 -5241 -4.6264 3.4437 4.8838 -2197.8 -3973.4 -5298.7 1.377 5.6601 -4.8155])
+
 
 Number_of_Sats = 4;
 
@@ -485,16 +619,15 @@ P_xc = zeros(18,6)
 
 # Initialize Formation data structure that holds the navigation related information
 
-SpacecraftChief = Spacecraft(Pos_init_chief,Pos_True_chief,PCov_chief,zeros(18,6),zeros(18,18));
-SpacecraftDep = Spacecraft(Pos_init,Pos_True,PCov,P_xc,PCov);
+SpacecraftChief = SpacecraftETC(Pos_init_chief,Pos_True_chief,PCov_chief,zeros(18,6),zeros(18,18),inv(Q_chief));
+SpacecraftDep1 = SpacecraftETC(Pos_init,Pos_True,PCov,P_xc,PCov,inv(Q));
+SpacecraftDep2 = SpacecraftETC(Pos_init,Pos_True,PCov,P_xc,PCov,inv(Q));
+SpacecraftDep3 = SpacecraftETC(Pos_init,Pos_True,PCov,P_xc,PCov,inv(Q));
 
-
-Formation = [SpacecraftChief,SpacecraftDep]
+Formation = [SpacecraftChief,SpacecraftDep1,SpacecraftDep2,SpacecraftDep3]
 
 xteo = true_pos[7:end,:];
 P_cc = Diagonal(vec((Initial_Dev[1:6,:]).^2)) + P_sat;
-
-Info_Jk_chief = inv(Q_chief);
 
 # Event-Triggering Init. 
 
@@ -519,10 +652,6 @@ for i = 2:SizeOfDataSet
 
     ############# Filter Processing #############
         T = ElapSEC[i]-ElapSEC[i-1];
-        if i == 2
-            global aux_Info_Jk_chief = Info_Jk_chief;
-            
-        end
 
         x_pos_old = Formation[2,i-1].PosVector;
         x_pos_old_chief = Formation[1,i-1].PosVector;
@@ -535,12 +664,12 @@ for i = 2:SizeOfDataSet
         V = sqrt(R)*randn(Number_meas,1); #Observation Noise
 
 
-        TruePos_dep = X[i] + W;
-        TruePos_chief = X_chief[i] + sqrt(Q_chief)*randn(6,1);
+        global X[i] = X[i] + W;
+        global X_chief[i]  = X_chief[i] + sqrt(Q_chief)*randn(6,1);
 
         # Dynamics Propagations - Event-Trigger Conditions for Chief - Due to the initial poorly-observable scenario for the V-R3x mission
         # force the filter to also use GPS in the first 10 iterations.
-        if any(x->x==i,[1:1:10;]) ||  Trace_P[i-1] > CL_Chief*Trace_CramerRaoLB_Chief[i-1]
+        if any(x->x==i,[1:1:10;]) || tr(convert(Matrix{Float64},Formation[1,i-1].P)) > CL_Chief*tr(inv(Formation[1,i-1].InfoMatrix))
             
             FLAG_GPS = 1;
 
@@ -550,133 +679,43 @@ for i = 2:SizeOfDataSet
 
         end
 
-        x_new,phi = StateTransDeputiesRK4(ElapSEC[i]-ElapSEC[i-1],x_pos_old);
-        x_new_chief,P_chief,phi_t_chief,aux1_Info_Jk_chief = ChiefFilterEKFFunctionwCRLB(x_pos_old_chief,Y_chief[i],P_chief,T,R_chief,Q_chief,aux_Info_Jk_chief,FLAG_GPS);
-        global aux_Info_Jk_chief = aux1_Info_Jk_chief
-        P_cc = P_chief;
+        #### S/C 1
+        x_new_chief,P_chief,phi_t_chief,aux1_Info_Jk_chief = ChiefFilterEKFFunctionwCRLB(Formation[1,i-1].PosVector,Y_chief[i],Formation[1,i-1].P,T,R_chief,Q_chief,Formation[1,i-1].InfoMatrix,FLAG_GPS);
+        SpacecraftChief = SpacecraftETC(x_new_chief,X_chief[i],P_chief,zeros(18,6),zeros(18,18),aux1_Info_Jk_chief);
 
         
-        x_pos = x_new;
-        phi_t = phi;
 
+        ########## Deputies ##########
 
-        P = phi_t*P*phi_t'+  Q;
-        P_xx = P
+        if FLAG_GPS == 1 || tr(convert(Matrix{Float64},Formation[2,i-1].P)) > CL_Deputy*tr(inv(Formation[2,i-1].InfoMatrix)) ||
+            tr(convert(Matrix{Float64},Formation[3,i-1].P)) > CL_Deputy*tr(inv(Formation[3,i-1].InfoMatrix)) ||
+            tr(convert(Matrix{Float64},Formation[4,i-1].P)) > CL_Deputy*tr(inv(Formation[4,i-1].InfoMatrix))
 
-        Fc = zeros(18,6);
+            Flag_RR = 1;
 
-        P = P + phi_t*P_xc*Fc' + Fc*P_xc'*phi_t' + Fc*P_cc*Fc';
-        P_xc = phi_t*P_xc + Fc*P_cc;
+        else
 
-        ###### Sensor Selection ######
-        # Only performs the update stage of the EKF,i.e. activates the deputy sensing capabilities when ETC is assured, 
-        # otherwise the filter just propagtes the dynamics model and monitors the covariance.
-        H = zeros(Number_meas,6*(Number_of_Sats-1)); row_count = 1;
+            Flag_RR = 0;
 
-        if FLAG_GPS == 1 || Trace_P_consider[i-1] > CL_Deputy*Trace_CramerRaoLB[i-1]
-
-            ## Meas. Prediction 
-            y_hat = zeros(Number_meas,1); y1 = zeros(Number_meas,1);
-            for meas_processing_sat = 1:(Number_of_Sats-1)
-
-                # First Range w/GPS Sats
-
-                y_hat[row_count] = norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-x_new_chief[1:3,:]);
-
-                H[row_count,(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+6] =  [((x_pos[(meas_processing_sat-1)*6+1]-(x_new_chief[1]))/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_new_chief[1:3,:]))) 
-                        ((x_pos[(meas_processing_sat-1)*6+2]-x_new_chief[2])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_new_chief[1:3,:]))) 
-                        ((x_pos[(meas_processing_sat-1)*6+3]-x_new_chief[3])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_new_chief[1:3,:])))
-                        0 
-                        0
-                        0]; 
-                row_count = row_count+1;
-                for h = (meas_processing_sat+1):(Number_of_Sats-1)
-
-                    y_hat[row_count] = norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:]));
-
-
-                    # Measurement Processing
-
-                    H[row_count,(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+6] = [((x_pos[(meas_processing_sat-1)*6+1] - x_pos[(h-1)*6+1])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:]))) 
-                        ((x_pos[(meas_processing_sat-1)*6+2] - x_pos[(h-1)*6+2])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
-                        ((x_pos[(meas_processing_sat-1)*6+3] - x_pos[(h-1)*6+3])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
-                        0
-                        0
-                        0];
-
-
-                    H[row_count,(h-1)*6+1:(h-1)*6+6] =  -1*[((x_pos[(meas_processing_sat-1)*6+1] - x_pos[(h-1)*6+1])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:]))) 
-                        ((x_pos[(meas_processing_sat-1)*6+2] - x_pos[(h-1)*6+2])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
-                        ((x_pos[(meas_processing_sat-1)*6+3] - x_pos[(h-1)*6+3])/norm(x_pos[(meas_processing_sat-1)*6+1:(meas_processing_sat-1)*6+3,:]-(x_pos[(h-1)*6+1:(h-1)*6+3,:])))
-                        0
-                        0
-                        0];                  
-                    row_count = row_count +1;
-                end
-
-
-
-            end
-
-            y1 = Y[i];
-
-            ############# State Refining #############
-
-            # Consider Parameters covariance matrix, includes the influence of the chief state on the deputy measurement model
-
-            H_c = zeros(row_count-1,6); 
-            index = [1 4 6];# GPS Meas
-            for g = 1:Number_of_Sats-1
-                index
-                H_c[index[g],:] =  -1*[((x_pos[(g-1)*6+1]-(x_new_chief[1]))/norm(x_pos[(g-1)*6+1:(g-1)*6+3,:]-(x_new_chief[1:3,:]))) 
-                    ((x_pos[(g-1)*6+2]-x_new_chief[2])/norm(x_pos[(g-1)*6+1:(g-1)*6+3]-(x_new_chief[1:3,:]))) 
-                    ((x_pos[(g-1)*6+3]-x_new_chief[3])/norm(x_pos[(g-1)*6+1:(g-1)*6+3]-(x_new_chief[1:3,:])))
-                    0
-                    0
-                    0]; 
-            end
-
-            y = (y1-y_hat);
-
-
-            P_xy = P*H' + P_xc*H_c';
-            # 
-            P_yy =   H*P*H' + R + H*P_xc*H_c' + H_c*P_xc'*H' + H_c*P_cc*H_c';
-
-            # Calculate the Kalman gain.
-            K = P_xy / P_yy;
-            aux =  x_pos + K*y;
-
-            x_pos = aux;
-
-            # Correct the state covariance and the state-consider covariance.
-            P = P - K*H*P - K*H_c*P_xc'; # New part
-
-            Kgain = P_xx*H'/(H*P_xx*H' + R);
-            P_xx = P_xx - Kgain*H*P_xx;
-
-            P_xc = P_xc - K*H*P_xc - K*H_c*P_cc;
         end
-    
-        # To monitor covariance for the Event-trigger conditions(ETC)
-        Trace_P_consider[i] = tr(P);
-        Trace_P[i] = tr(P_chief);
-        Trace_P_dep[i] = tr(P_xx);   
 
-        ############ Crámer-Rao Lower-bound ############
+        #### S/C 2 
+        x_pos,P,P_xc,P_xx,Info_Mat = DeputyFilterEKFFunctionwCRLB(Formation[2,i-1].PosVector,x_new_chief,P_chief,Y[i],Formation[2,i-1].P,Formation[2,i-1].P_xc,Formation[2,i-1].P_xx,Formation[2,i-1].InfoMatrix,T,R,Q,Flag_RR)
+        SpacecraftDep1 = SpacecraftETC(x_pos,X[i],P,P_xc,P_xx,Info_Mat);
 
-        global InfoJ_k = inv(Q + phi_t*inv(InfoJ_k)*(phi_t)')+ H'*inv(R)*H;
+        #### S/C 3
+        x_pos,P,P_xc,P_xx,Info_Mat = DeputyFilterEKFFunctionwCRLB(Formation[3,i-1].PosVector,x_new_chief,P_chief,Y[i],Formation[3,i-1].P,Formation[3,i-1].P_xc,Formation[3,i-1].P_xx,Formation[3,i-1].InfoMatrix,T,R,Q,Flag_RR)
+        SpacecraftDep2 = SpacecraftETC(x_pos,X[i],P,P_xc,P_xx,Info_Mat);
 
-        
-        Trace_CramerRaoLB[i] = tr(inv(InfoJ_k));
-        Trace_CramerRaoLB_Chief[i]= tr(inv(aux_Info_Jk_chief));
+        #### S/C 4
+        x_pos,P,P_xc,P_xx,Info_Mat = DeputyFilterEKFFunctionwCRLB(Formation[4,i-1].PosVector,x_new_chief,P_chief,Y[i],Formation[4,i-1].P,Formation[4,i-1].P_xc,Formation[4,i-1].P_xx,Formation[4,i-1].InfoMatrix,T,R,Q,Flag_RR)
+        SpacecraftDep3 = SpacecraftETC(x_pos,X[i],P,P_xc,P_xx,Info_Mat);
 
-        SpacecraftChief = Spacecraft(x_new_chief,X_chief[i],P_chief,zeros(18,6),zeros(18,18));
-        SpacecraftDep = Spacecraft(x_pos,X[i],P,P_xc,P_xx);
+        # Update Formation Data Structures
 
-        global Formation = hcat(Formation, [SpacecraftChief,SpacecraftDep])
+        global Formation = hcat(Formation, [SpacecraftChief,SpacecraftDep1,SpacecraftDep2,SpacecraftDep3])
 
-        
+            
   
 end
 
@@ -689,19 +728,18 @@ EKF_dev_min4 = zeros(SizeOfDataSet,1);
 for k = 1:SizeOfDataSet
         EKF_dev_min1[k] = norm(Formation[1,k].PosVector[1:3,:]-Formation[1,k].TruePos[1:3,:]);
         EKF_dev_min2[k] = norm(Formation[2,k].PosVector[1:3,:]-Formation[2,k].TruePos[1:3,:]);
-        EKF_dev_min3[k] = norm(Formation[2,k].PosVector[7:9,:]-Formation[2,k].TruePos[7:9,:]);
-        EKF_dev_min4[k] = norm(Formation[2,k].PosVector[13:15,:]-Formation[2,k].TruePos[13:15,:]);
+        EKF_dev_min3[k] = norm(Formation[3,k].PosVector[7:9,:]-Formation[3,k].TruePos[7:9,:]);
+        EKF_dev_min4[k] = norm(Formation[4,k].PosVector[13:15,:]-Formation[4,k].TruePos[13:15,:]);
 end   
-
 
 
 mat"
 
 figure
-txt5 = ['Error EKF SAT 1(Chief)'];
-txt6 = ['Error EKF SAT 2'];
-txt7 = ['Error EKF SAT 3'];
-txt8 = ['Error EKF SAT 4'];
+txt5 = ['Position Error S/C 1'];
+txt6 = ['Position Error S/C 2'];
+txt7 = ['Position Error S/C 3'];
+txt8 = ['Position Error S/C 4'];
 
 plot($ElapSEC(1:395,:)./(60*60),$EKF_dev_min1,'--','DisplayName',txt5);
 hold on;
@@ -722,22 +760,5 @@ Chief_RMSE_Consider_sat1 = sqrt((1/(395-300))*sum($EKF_dev_min1(300:end,:).^2))
 Deputies_RMSE_Consider_sat2 = sqrt((1/(395-300))*sum($EKF_dev_min2(300:end,:).^2))
 Deputies_RMSE_Consider_sat3 = sqrt((1/(395-300))*sum($EKF_dev_min3(300:end,:).^2))
 Deputies_RMSE_Consider_sat4 = sqrt((1/(395-300))*sum($EKF_dev_min4(300:end,:).^2))
-
-%% ETC Includes - All mean Error of Deputies
-
-txt34 = 'Distributed Low-Comm. for Deputies S/C';
-
-figure()
-set(gcf,'position',[400,400,800,600])
-
-
-plot($ElapSEC(1:395,:)./(60*60),mean([$EKF_dev_min2(1:end,:); $EKF_dev_min3(1:end,:); $EKF_dev_min4(1:end,:)]),'-d','MarkerSize',3);
-
-grid on;
-set(gca, 'YScale', 'log');
-
-% hl = legend('show');
-lgd=legend(txt34);
-lgd.FontSize = 14;
 
 "
