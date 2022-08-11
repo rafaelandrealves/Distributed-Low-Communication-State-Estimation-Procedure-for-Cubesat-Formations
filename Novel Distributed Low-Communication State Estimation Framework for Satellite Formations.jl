@@ -1,5 +1,5 @@
 
-# -- Novel Distributed Low-Communication State Estimator for 4 Spacecraft Formation with included dynamics with RK4 integration
+# -- Novel Distributed Event-triggered Low-Communication State Estimator for 4 Spacecraft Formation with included Dynamics with RK4 integration
 # -- Made by: Robotic Exploration Lab at Carnegie-Mellon University
 
 # ----------------------------------------------------------
@@ -102,11 +102,10 @@ function DynamicsJ2_MultSats(t,x,FLAG_Normalized)
     nt= size(x,2)
     xd=zeros(nx,nt); A = [];
     
-    ## two-body dynamics & drag
+    ## Two-body dynamics & drag
     # If State vector had Drag Coefficient (7.80) montenbruck
     mu = 3.986E5; raw0 = 1.225;# kg/m^3
-    w_E = [0; 0; 2*pi/86184]; # Earths angular velocity vector -> Rel velocity of Satellite
-    # vs the athmospheric, assume atmosphere co-rotates with Earth -> vr =
+    w_E = [0; 0; 2*pi/86184]; # Earths angular velocity vector -> Rel velocity of Satellite vs the athmospheric, assume atmosphere co-rotates with Earth 
 
     Area = 0.01;
     m = 1;
@@ -371,8 +370,6 @@ function ChiefFilterEKFFunctionwCRLB(x_old,y1,P_old,T,R,Q,Info_Jk_chief,FLAG_GPS
     x_pos_old = x_old;
     P = P_old;
 
-    # V = sqrt(Q)*randn(3,1); #Observation Noise
-
     # Dynamics Propagations
     
     x_new,phi = StateTransDeputiesRK4(T, x_pos_old);
@@ -494,7 +491,6 @@ function DeputyFilterEKFFunctionwCRLB(x_old,x_new_chief,P_chief,y_true,P,P_xc,P_
 
     end
 
-    # y1 = Y[i];
 
     ############# State Refining #############
     # Consider Parameters covariance matrix, includes the influence of the chief state on the deputy measurement model
